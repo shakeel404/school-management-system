@@ -1,0 +1,210 @@
+﻿@page "/student/edit"
+@using SmartLearning.Shared.Models
+@using System.Text
+@inject HttpClient Http
+@inject Sotsera.Blazor.Toaster.IToaster toaster
+
+@if (string.IsNullOrWhiteSpace(StudentModel.Id))
+{
+    <Waiting />
+}
+else
+{
+    <div class="card ">
+            <div class="card-header">
+                <h5 class="card-title"> <i class="fa @(EditMode?"fa-edit":"fa-user")"></i> Student Personal</h5>
+            </div>
+            <div class="card-body">
+
+                <EditForm Model="@StudentModel" OnInvalidSubmit="@InValidSubmit" OnValidSubmit="@ValidSubmit">
+                    <DataAnnotationsValidator />
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="firstname">First Name</label>
+                            <input type="text" disabled="@(!EditMode)" Id="firstname" Class="form-control"
+                                   bind="@StudentModel.FirstName" />
+                            @if (EditMode)
+                            {
+                                <small class="text-secondary">@($"{StudentModel.FirstName} {StudentModel.LastName}")</small>
+                            }
+                            <div class="text-danger ">
+                                <ValidationMessage For="@(()=>StudentModel.FirstName)" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="lastname">Last Name</label>
+                            <input type="text" disabled="@(!EditMode)" Id="lastname" Class="form-control" bind="@StudentModel.LastName" />
+                            <div class="text-danger">
+                                <ValidationMessage For="@(()=>StudentModel.LastName)" />
+                            </div>
+                        </div>
+
+                      
+                        <div class="col-md-6">
+                            <label for="dateofbirth">Date Of Birth</label>
+                            <input disabled="@(!EditMode)" type="date" format-value="yyyy-MM-dd" format="dd MMM yyyy" Class="form-control"
+                                   bind="@DateOfBirth" />
+                            @if (EditMode)
+                            {
+                                <small class="text-secondary">@(DateOfBirth.ToLongDateString())</small>
+                            }
+                            <div class="text-danger">
+                                <ValidationMessage For="@(()=>StudentModel.DateOfBirth)" />
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="gender">Gender</label>
+                            <select disabled="@(!EditMode)" class="form-control" bind="@StudentModel.Gender">
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">FeMale</option>
+                                <option value="-">Not Specified</option>
+                            </select>
+                            <div class="text-danger">
+                                <ValidationMessage For="@(()=>StudentModel.Gender)" />
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="religion">Religion</label>
+                            <select disabled="@(!EditMode)" id="religion" Class="form-control" bind="@StudentModel.Religion">
+                                <option value="">Select Religion</option>
+                                <option value="Islam">Islam</option>
+                                <option value="NonMuslim">None Muslim</option>
+                            </select>
+                            <div class="text-danger">
+                                <ValidationMessage For="@(()=>StudentModel.Religion)" />
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="nationality">Religion</label>
+                            <select disabled="@(!EditMode)" id="nationality" class="form-control" bind="@StudentModel.Nationality">
+                                <option value="">Select Country</option>
+                                <option value="Pakistani">Pakistani</option>
+                                <option value="Afghani">Afghani</option>
+                                <option value="Indian">Indian</option>
+                            </select>
+                            <div class="text-danger">
+                                <ValidationMessage For="@(()=>StudentModel.Nationality)" />
+                            </div>
+                        </div>
+
+                        <div class="col-md-12">
+                            <p>&nbsp;</p>
+                            @if (ItemSaving)
+                            {
+                                <WaitingSecondaryButton></WaitingSecondaryButton>
+                            }
+                            else
+                            {
+                                <div class="custom-control custom-switch float-lg-right">
+                                    <input type="checkbox" bind="@EditMode" id="editmode"
+                                           class="custom-control-input" />
+                                    <label class="custom-control-label" for="editmode">Edit</label>
+                                </div>
+
+                                <button hidden="@(!EditMode)" class="btn btn-secondary float-left " type="submit">Save</button>
+                                <small hidden="@(EditMode  )" class="text-secondary float-left">Last Updated: @StudentModel.LastUpdate?.ToLongDateString() </small>
+                            }
+
+
+                        </div>
+
+                    </div>
+
+
+                </EditForm>
+            </div>
+        </div>
+
+}
+
+@functions{
+
+    [Parameter] string StudentId { get; set; }
+
+
+    private Student StudentModel = new Student();
+
+
+
+    private DateTime DateOfBirth;
+    private bool ItemSaving = false;
+
+    private bool EditMode = false;
+
+    protected override async void OnInit()
+    { 
+        await GetStudent();
+    }
+
+    async Task GetStudent()
+    {
+        var uri = $"api/student/{StudentId}";
+        var student = await Http.GetJsonAsync<Student>(uri);
+        StudentModel.Id = student.Id;
+        StudentModel.FirstName = student.FirstName;
+        StudentModel.LastName = student.LastName;
+        StudentModel.DateOfBirth = student.DateOfBirth;
+        StudentModel.Nationality = student.Nationality;
+        StudentModel.Religion = student.Religion;
+        StudentModel.Gender = student.Gender;
+        StudentModel.LastUpdate = student.LastUpdate;
+        DateOfBirth = (DateTime)student.DateOfBirth;
+        StateHasChanged();
+    }
+
+    void ChangeDate(string date)
+    {
+        if (string.IsNullOrWhiteSpace(date))
+            return;
+
+        DateTime _dateOfBirth;
+        if (DateTime.TryParse(date, out _dateOfBirth))
+        {
+            StudentModel.DateOfBirth = _dateOfBirth;
+        }
+
+    }
+
+    void InValidSubmit()
+    {
+
+        toaster.Error("Fix the issues first", "Student");
+    }
+
+    async void ValidSubmit()
+    {
+        ItemSaving = true;
+
+        StudentModel.DateOfBirth = DateOfBirth;
+        StudentModel.LastUpdate = DateTime.Now;
+
+        try
+        {
+
+            var json = Json.Serialize(StudentModel);
+
+            // json = json.Replace('T', ' ').Replace('Z', ' ');
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var uri = $"api/student/{StudentModel.Id}";
+
+            await Http.PutAsync(uri, content);
+            toaster.Success("Student saved successfully", "Edit Student");
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+
+        EditMode = ItemSaving = false;
+        StateHasChanged();
+    }
+
+}

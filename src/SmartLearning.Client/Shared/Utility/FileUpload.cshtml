@@ -1,0 +1,283 @@
+﻿@using Blazor.FileReader
+
+@inject IFileReaderService FileReader
+@inject HttpClient Http
+@inject Sotsera.Blazor.Toaster.IToaster toaster
+
+<style>
+    #first {
+        width: 400px;
+        height: 400px;
+        background-color: transparent;
+        position: absolute;
+        opacity: 0.3;
+    }
+
+    #second {
+        width: 400px;
+        height: 400px;
+        z-index: 10;
+        position: absolute;
+    }
+
+    .top {
+        position: absolute;
+        z-index: 20;
+        margin-top: -40px;
+        margin-left: 180px;
+    }
+
+    .left {
+        margin-top: 200px;
+        margin-left: -50px;
+        position: absolute;
+        z-index: 20;
+    }
+
+    .right {
+        margin-top: 200px;
+        margin-left: 420px;
+        position: absolute;
+        z-index: 20;
+    }
+
+    .bottom {
+        margin-top: 405px;
+        margin-left: 180px;
+        position: absolute;
+        z-index: 20;
+    }
+
+    .reset {
+        position: absolute;
+        z-index: 20;
+        margin-top: -30px;
+        margin-left: -40px;
+    }
+
+    .img-container {
+        margin-left: 300px;
+    }
+</style>
+
+
+<div class="card ">
+    <div class="card-header">
+        <h5 class="card-title"> <i class="fa fa-image"></i> Student Picture </h5>
+    </div>
+    <div class="card-body"> 
+            <img src="@ImageUrl" alt="Student" width="250" height="250"/> 
+         
+            <button type="button" class="mb-2 mr-2 border-0 btn-transition btn btn-outline-dark" data-toggle="modal" data-target=".bd-example-modal-lg">
+                <i class="fa fa-user-plus"></i> Change Image
+            </button>
+        
+       
+    </div>
+</div>
+<div class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" aria-hidden="true" style="display: none;">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="height:550px">
+
+            <div class="modal-body">
+                <div class="input-group">
+                    <div class="custom-file" style="max-width:300px">
+                        <input type="file" ref="fileupload" onchange="@ProcessFile" id="fileupload" />
+                        <label class="custom-file-label" for="fileupload">@FileName</label>
+                    </div>
+
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(ImageData))
+                {
+                    <div class="img-container">
+                        <button class="btn btn-secondary top" onclick="@OnTop"><i class="fa fa-arrow-up"></i></button>
+                        <button class="btn btn-secondary left" onclick="@OnLeft"><i class="fa fa-arrow-left"></i></button>
+                        <button class="btn btn-secondary right" onclick="@OnRight"><i class="fa fa-arrow-right"></i></button>
+                        <button class="btn btn-secondary bottom" onclick="@OnBottom"><i class="fa fa-arrow-down"></i></button>
+                        <img id="first" src="@ImageData" />
+
+
+                        <img id="second" class="clip" style="clip: rect(@(Top.ToString()+"px"),@(Right.ToString()+"px"),@(Bottom.ToString()+"px"),@(Left.ToString()+"px"));"
+                             src="@ImageData" />
+                    </div>
+                }
+
+
+
+
+
+            </div>
+
+            <div class="modal-footer">
+                @if (ImageProcessing || ImageUploading)
+                {
+                    <Waiting />
+                }
+                else if(!string.IsNullOrWhiteSpace(ImageData))
+                {
+                    <button type="button" onclick="@(()=>UploadFile())"
+                            class="btn btn-secondary float-right">
+                        <i class="fa fa-upload"></i> Save
+                    </button>
+
+                }
+                <button type="button" class="btn btn-outline-danger float-left" data-dismiss="modal">Cancel</button>
+            </div>
+
+
+        </div>
+    </div>
+</div>
+
+
+
+@functions{
+
+
+    [Parameter] string StudentId { get; set; }
+    private string ImageUrl { get; set; }
+    private string ImageData = string.Empty;
+    private string Image = string.Empty;
+    private string FileName = "Chose file";
+    ElementRef fileupload;
+
+
+    private bool ImageUploading = false;
+    private bool ImageProcessing = false;
+    private int Top = 50;
+    private int Right = 350;
+    private int Bottom = 350;
+    private int Left = 50;
+
+
+    protected async override void OnInit()
+    {
+        var uri = $"api/student/imageurl/{StudentId}";
+        var response = await Http.GetAsync(uri);
+        ImageUrl = await response.Content.ReadAsStringAsync();
+        StateHasChanged();
+    }
+
+    void OnTop()
+    {
+        if (Top <= 0)
+        {
+            Top = 0;
+            Bottom = 300;
+        }
+        else
+        {
+            Top -= 5;
+            Bottom -= 5;
+        }
+        StateHasChanged();
+    }
+
+    void OnBottom()
+    {
+        if (Bottom >= 400)
+        {
+            Top = 100;
+            Bottom = 400;
+        }
+        else
+        {
+            Top += 5;
+            Bottom += 5;
+        }
+        StateHasChanged();
+    }
+
+    void OnLeft()
+    {
+        if (Left <= 0)
+        {
+            Left = 0;
+            Right = 300;
+        }
+        else
+        {
+            Left -= 5;
+            Right -= 5;
+        }
+        StateHasChanged();
+    }
+
+    void OnRight()
+    {
+        if (Right >= 400)
+        {
+            Right = 400;
+            Left = 100;
+        }
+        else
+        {
+            Right += 5;
+            Left += 5;
+        }
+
+        StateHasChanged();
+    }
+
+    void Reset()
+    {
+        Top = 50;
+        Right = 350;
+        Bottom = 350;
+        Left = 50;
+    }
+
+    async void ProcessFile(UIChangeEventArgs args)
+    {
+        ImageProcessing = true;
+        var files = await FileReader.CreateReference(fileupload).EnumerateFilesAsync();
+
+        if (files == null || files.Count() == 0)
+        {
+            ImageProcessing = false;
+            StateHasChanged();
+            return;
+        }
+
+        var file = files.First();
+        var fileInfo = await file.ReadFileInfoAsync();
+
+        FileName = fileInfo.Name;
+        StateHasChanged();
+
+        using (var stream = await file.CreateMemoryStreamAsync())
+        {
+            Image = Convert.ToBase64String(stream.ToArray());
+            ImageData = $"data:image/jpg;base64,{Image}";
+        }
+        ImageProcessing = false;
+
+       
+        StateHasChanged();
+    }
+
+    async void UploadFile()
+    {
+        ImageUploading = true;
+        StateHasChanged();
+        await Task.Delay(1000);
+        var imageByts = Convert.FromBase64String(Image);
+
+        var imagefile = new ByteArrayContent(imageByts);
+        var imagecontent = new MultipartFormDataContent();
+        imagecontent.Add(imagefile, "file", FileName);
+        var uri = $"api/student/uploadimage/{StudentId}/{Left}/{Top}";
+        var response = await Http.PostAsync(uri, imagecontent);
+        ImageUrl = await response.Content.ReadAsStringAsync();
+
+        Image = ImageData = string.Empty;
+        FileName = "Chose file";
+        ImageUploading = false;
+        StateHasChanged();
+
+        toaster.Success("Picture changed successfuly", "Student Picutre");
+
+
+    }
+}

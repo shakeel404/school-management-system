@@ -1,0 +1,19 @@
+﻿@page "/student/details/{StudentId}"
+@using SmartLearning.Shared.Models
+@inject HttpClient Http
+
+<div class="row">
+    <div class="col-md-6">
+
+        <StudentEdit StudentId="@StudentId" />
+    </div>
+    <div class="col-md-6">
+        <FileUpload StudentId="@StudentId" />
+
+    </div>
+</div>
+
+@functions {
+
+    [Parameter] string StudentId { get; set; }
+}
